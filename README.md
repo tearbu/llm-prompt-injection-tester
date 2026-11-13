@@ -1,47 +1,22 @@
 # LLM Prompt-Injection Tester
 
-An offline security test harness for LLM applications, aligned to the
-**OWASP Top 10 for LLM Applications**. It runs a battery of prompt-injection
-test cases against a set of input-layer defenses and simulated application
-responses, classifies every case as **BLOCKED**, **RESISTED**, or
-**COMPROMISED**, and produces a per-category report with an overall
-defense-effectiveness score.
+This is an offline security test harness for LLM applications, aligned to the **OWASP Top 10 for LLM Applications**. It runs a set of prompt-injection test cases against input-layer defenses and simulated application responses. Each case gets classified as **BLOCKED**, **RESISTED**, or **COMPROMISED**. At the end you get a report by category and an overall defense-effectiveness score.
 
-> **Important:** this is an **offline evaluation harness**. Target responses
-> are bundled, fictional, pre-recorded simulations. The harness makes **no
-> external API calls** and never talks to a real LLM. It exists to structure
-> an injection test battery, score defense rulesets, and regression-test
-> them as they evolve — not to attack live systems.
+> **Important:** this is an **offline evaluation harness**. Target responses are bundled, fictional, pre-recorded simulations. The harness makes **no external API calls** and never talks to a real LLM. I built it to structure an injection test battery, score defense rulesets, and regression-test them as they change. It is not for attacking live systems.
 
 ## The problem it solves
 
-Prompt injection is the top risk for LLM applications (OWASP LLM01), yet
-most teams test it ad hoc — a handful of "ignore your instructions" prompts
-in a chat window. That misses the techniques that actually succeed in
-production incidents: **indirect injection** through retrieved documents and
-tool output, **encoding tricks** that sail past keyword filters, and
-**transformation laundering** (asking for the system prompt "in French")
-that bypasses refusal behaviour tuned for direct requests. This harness
-organises those cases into a repeatable battery with explicit verdicts and
-rationales, so defense coverage can be measured instead of assumed.
+Prompt injection is the top risk for LLM applications (OWASP LLM01). Most teams still test it ad hoc, with a handful of "ignore your instructions" prompts typed into a chat window. That misses what actually works in production incidents. The real problems are **indirect injection** through retrieved documents and tool output, **encoding tricks** that get past keyword filters, and **transformation laundering** (asking for the system prompt "in French") that bypasses refusal behaviour tuned for direct requests. This harness puts those cases into a repeatable battery with explicit verdicts and rationales, so you can measure defense coverage instead of assuming it.
 
 ## What's in the battery
 
 12 cases across three OWASP categories:
 
-- **LLM01 Prompt Injection** — direct override (classic and paraphrased),
-  indirect injection via a poisoned support ticket and a retrieved web page,
-  a DAN jailbreak, a base64-encoded payload, role-play framing, a forged
-  `[SYSTEM]` message, and a delimiter-escape attack
-- **LLM07 System Prompt Leakage** — verbatim extraction (resisted) vs.
-  extraction via translation (compromised)
-- **LLM02 Sensitive Information Disclosure** — direct request for other
-  customers' data
+- **LLM01 Prompt Injection**: direct override (classic and paraphrased), indirect injection via a poisoned support ticket and a retrieved web page, a DAN jailbreak, a base64-encoded payload, role-play framing, a forged `[SYSTEM]` message, and a delimiter-escape attack
+- **LLM07 System Prompt Leakage**: verbatim extraction (resisted) vs. extraction via translation (compromised)
+- **LLM02 Sensitive Information Disclosure**: direct request for other customers' data
 
-Defenses are two-layered: regex **pattern rules** at the input layer (see
-`data/defenses.json`), plus design defenses — delimiter wrapping,
-instruction hierarchy, output screening — whose effect is reflected in the
-simulated target responses.
+Defenses are two-layered. There are regex **pattern rules** at the input layer (see `data/defenses.json`), plus design defenses like delimiter wrapping, instruction hierarchy, and output screening, whose effect shows up in the simulated target responses.
 
 ## How to run
 
@@ -51,9 +26,7 @@ Demo mode (fully offline, bundled cases and simulated responses):
 python3 tester.py --demo
 ```
 
-Evaluate your own battery — record responses from your application (or your
-own simulations) in the same JSON schema as `data/tests.json`, and your own
-rules in the schema of `data/defenses.json`:
+Evaluate your own battery: record responses from your application (or your own simulations) in the same JSON schema as `data/tests.json`, and your own rules in the schema of `data/defenses.json`:
 
 ```bash
 python3 tester.py --tests my_tests.json --defenses my_defenses.json
@@ -133,32 +106,15 @@ Weakest category: LLM07: System Prompt Leakage (1/2 compromised)
 
 ## Reading the results
 
-The pattern in the demo is the realistic one: the input filter stops the
-*loud* attacks (verbatim "ignore previous instructions", DAN, forged system
-markers) and the simulated app refuses several direct requests — but **every
-compromise comes through a channel the filter cannot see**: content the app
-retrieves or is asked to process (INJ-003, INJ-009), an encoded payload
-(INJ-007), a transformation of a refused request (INJ-005), or a forged
-context boundary (INJ-012). Keyword filtering is a speed bump; the durable
-controls are architectural — least-privilege tool access, treating retrieved
-content as data, and output screening.
+The pattern in the demo is the realistic one. The input filter stops the *loud* attacks (verbatim "ignore previous instructions", DAN, forged system markers) and the simulated app refuses several direct requests. But **every compromise comes through a channel the filter cannot see**: content the app retrieves or is asked to process (INJ-003, INJ-009), an encoded payload (INJ-007), a transformation of a refused request (INJ-005), or a forged context boundary (INJ-012). Keyword filtering is a speed bump. The controls that hold up are architectural: least-privilege tool access, treating retrieved content as data, and output screening.
 
 ## Design notes and limitations
 
-- Verdicts for non-blocked cases come from the recorded `target_outcome` in
-  each test case, because there is no live model to interrogate. When you
-  adapt this to a real application, replace the simulation with captured
-  responses from your own testing.
-- Pattern rules are intentionally few and simple so the failure modes stay
-  visible; a production ruleset would add decoding/normalisation stages
-  (e.g., base64 detection) before matching.
-- OWASP category labels follow the OWASP Top 10 for LLM Applications
-  (2025): LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure,
-  LLM07 System Prompt Leakage.
-- All payloads, responses, names, and tokens in the sample data are
-  fictional and deliberately harmless (no working exploits, no real
-  credentials).
+- Verdicts for non-blocked cases come from the recorded `target_outcome` in each test case, because there is no live model to interrogate. When you adapt this to a real application, replace the simulation with captured responses from your own testing.
+- Pattern rules are intentionally few and simple so the failure modes stay visible. A production ruleset would add decoding/normalisation stages (e.g., base64 detection) before matching.
+- OWASP category labels follow the OWASP Top 10 for LLM Applications (2025): LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM07 System Prompt Leakage.
+- All payloads, responses, names, and tokens in the sample data are fictional and deliberately harmless (no working exploits, no real credentials).
 
 ## License
 
-MIT — see `LICENSE`.
+MIT: see `LICENSE`.
